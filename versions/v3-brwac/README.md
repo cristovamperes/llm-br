@@ -24,6 +24,7 @@ LM por caracteres treinado no corpus BrWaC via Hugging Face Datasets. Usa a clas
 - Parametros comuns: `tamanho_sequencia=160`, `tamanho_lstm=256..512`.
 
 ## 5. Treinamento
+- O script usa callbacks ao treinar (ModelCheckpoint, ReduceLROnPlateau, EarlyStopping). Se `--validacao_split > 0`, monitora `val_loss`.
 - Exemplo (amostra de 10k textos):
 ```
 python versions/v3-brwac/scripts/treinar_com_brwac.py \

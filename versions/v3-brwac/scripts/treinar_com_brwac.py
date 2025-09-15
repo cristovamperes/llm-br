@@ -2,6 +2,7 @@ import argparse
 import os
 import tempfile
 
+import tensorflow as tf
 from datasets import load_dataset
 from llm_generico import LLMSimplesGenerico
 
@@ -9,6 +10,7 @@ from llm_generico import LLMSimplesGenerico
 def preparar_texto(texto: str) -> str:
     """Limpeza simples: normaliza espaços e remove quebras de linha extras."""
     texto = texto.replace("\n", " ").replace("\r", " ")
+    texto = texto.lower()
     while "  " in texto:
         texto = texto.replace("  ", " ")
     return texto.strip()
@@ -67,10 +69,24 @@ def main() -> None:
         )
 
         print("Iniciando treinamento...")
+        # Callbacks alinhados com notebooks: monitor em val_loss se houver validação
+        monitor = "val_loss" if args.validacao_split and args.validacao_split > 0 else "loss"
+        cb = [
+            tf.keras.callbacks.ModelCheckpoint(
+                filepath=args.modelo_saida,
+                save_best_only=True,
+                monitor=monitor,
+                mode="min",
+            ),
+            tf.keras.callbacks.ReduceLROnPlateau(monitor=monitor, factor=0.5, patience=3, min_lr=5e-5),
+            tf.keras.callbacks.EarlyStopping(monitor=monitor, patience=5, restore_best_weights=True),
+        ]
+
         llm.treinar(
             caminho_texto=caminho_texto,
             nome_arquivo_modelo=args.modelo_saida,
             nome_arquivo_maps=args.mapeamentos_saida,
+            callbacks=cb,
         )
         print(f"Treinamento concluído! Modelo salvo em '{args.modelo_saida}'")
     finally:
@@ -83,4 +99,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

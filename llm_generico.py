@@ -1,7 +1,7 @@
 import os
 import pickle
 from dataclasses import dataclass
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Optional, List
 
 import numpy as np
 import tensorflow as tf
@@ -59,6 +59,7 @@ class LLMSimplesGenerico:
         caminho_texto: str,
         nome_arquivo_modelo: str,
         nome_arquivo_maps: str,
+        callbacks: Optional[List[tf.keras.callbacks.Callback]] = None,
     ) -> None:
         texto = self._ler_texto(caminho_texto)
         self.char_to_idx, self.idx_to_char = self._criar_mapeamentos(texto)
@@ -73,6 +74,7 @@ class LLMSimplesGenerico:
             batch_size=self.cfg.batch_size,
             epochs=self.cfg.epocas_treino,
             validation_split=self.cfg.validacao_split,
+            callbacks=callbacks if callbacks else None,
             verbose=2,
         )
 
@@ -137,4 +139,3 @@ class LLMSimplesGenerico:
         }
         with open(caminho_maps, "wb") as f:
             pickle.dump(payload, f)
-
