@@ -1,0 +1,21 @@
+# Ambientes locais
+.venv/
+.venv*/
+
+# Artefatos grandes (mantidos fora do Git por padrão)
+versions/*/models/
+versions/*/mappings/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Jupyter
+.ipynb_checkpoints/
+
+# SO
+.DS_Store
+Thumbs.db
+

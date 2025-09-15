@@ -1,0 +1,19 @@
+Este é um exemplo de texto em português brasileiro para demonstrar o funcionamento do LLM genérico.
+O modelo pode ser treinado com qualquer corpus de texto, não apenas obras literárias clássicas.
+Isso permite criar modelos especializados para diferentes domínios e aplicações.
+A seguir, alguns exemplos de textos que poderiam ser usados para treinar modelos especializados:
+
+Textos jurídicos:
+"Art. 1º Esta lei regulamenta a proteção de dados pessoais no âmbito da administração pública federal."
+
+Textos técnicos:
+"O algoritmo de aprendizado de máquina utiliza técnicas de processamento de linguagem natural."
+
+Textos jornalísticos:
+"O governo anunciou hoje novas medidas para combater a inflação."
+
+Textos acadêmicos:
+"Este estudo analisa o impacto das redes sociais no comportamento do consumidor."
+
+O objetivo é mostrar que o LLM genérico pode ser adaptado para diferentes contextos,
+contribuindo para a soberania digital brasileira através de modelos especializados.
