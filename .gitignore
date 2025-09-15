@@ -2,9 +2,8 @@
 .venv/
 .venv*/
 
-# Artefatos grandes (mantidos fora do Git por padrão)
-versions/*/models/
-versions/*/mappings/
+# Artefatos grandes
+# Agora são rastreados via Git LFS (.gitattributes)
 
 # Python
 __pycache__/
@@ -18,4 +17,3 @@ __pycache__/
 # SO
 .DS_Store
 Thumbs.db
-
