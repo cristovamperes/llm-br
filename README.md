@@ -43,10 +43,3 @@ Os artefatos de treino (modelos `.keras` e mapeamentos `.pkl`) ficam dentro de c
 ## Dados e artefatos
 - Arquivos grandes de modelo (`.keras`) e mapeamentos (`.pkl`) são mantidos fora do Git por padrão.
 - Opcionalmente, use Git LFS se desejar versionar os artefatos treinados.
-
-## Autor
-[Seu nome]
-
-## Licença
-[A definir]
-
