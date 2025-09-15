@@ -1,46 +1,48 @@
-# v1 — LLM simples por caracteres
+# v1 - LLM simples por caracteres
 
-Guia didático para estudantes: esta versão implementa um modelo gerador de texto por caracteres usando Keras (LSTM). É ótima para entender conceitos fundamentais: tokenização por caracteres, janelas deslizantes, one-hot/embedding, arquitetura sequencial e geração autoregressiva.
+Guia didatico: modelo gerador de texto por caracteres em Keras (LSTM). Mantem a arquitetura simples para focar nos fundamentos (tokenizacao por caracteres, janelas deslizantes e geracao autoregressiva).
 
 ## Estrutura
-- Notebook principal: `notebooks/llm.ipynb`
-- Modelos salvos: `models/`
-- Mapeamentos (char↔idx): `mappings/`
-- Observação: artefatos binários (.keras, .pkl) são ignorados no Git.
+- Notebook: `versions/v1-char-rnn/notebooks/llm.ipynb`
+- Modelos: `versions/v1-char-rnn/models/`
+- Mapeamentos: `versions/v1-char-rnn/mappings/`
 
-## Pré‑requisitos
-- Python 3.11+ (recomendado 3.12) e um ambiente virtual ativo.
-- Instale as dependências: `pip install -r requirements.txt` na raiz do repositório.
+## 1. Setup
+- Execute a celula SETUP_ARTIFACT_PATHS no inicio do notebook. Ela define:
+  - `MODELO_OUT` -> `versions/v1-char-rnn/models/modelo_char_rnn.keras`
+  - `MAPEAMENTOS_OUT` -> `versions/v1-char-rnn/mappings/mapeamentos.pkl`
 
-## Passo a passo (rápido)
-1) Abra o notebook `notebooks/llm.ipynb` no Jupyter.
-2) Execute as células sequencialmente. A primeira execução treina o modelo com o corpus configurado no notebook.
-3) Após o treino, use a célula de “geração de texto” e teste prompts curtos.
+## 2. Dados e Pre-processamento
+- Corpus: Dom Casmurro (Project Gutenberg).
+- Normalizacao recomendada: `texto = texto.lower()` e `texto = ' '.join(texto.split())` para reduzir vocabulario e ruido.
 
-## Conceitos‑chave explicados
-- Tokenização por caracteres: cada caractere do corpus recebe um índice; o mapeamento é salvo em `mappings/`.
-- Janelas de sequência: cria pares (entrada, próximo caractere) de comprimento fixo para treinar a próxima predição.
-- Arquitetura: LSTM com camada densa final para distribuição sobre o vocabulário de caracteres.
-- Temperatura: parâmetro que controla aleatoriedade na amostragem de caracteres durante a geração.
+## 3. Vocabulario e Janelas de Treino
+- Cria mapeamentos char->id e id->char e pares (X,y) por janelas fixas.
+- Parametros base: `TAMANHO_SEQUENCIA = 160`.
 
-## Dicas de treino
-- Aumente `épocas` para melhor qualidade (cuidado com overfitting).
-- Aumente `tamanho_sequencia` se o corpus for grande; reduz para treinos rápidos.
-- Salve checkpoints: o notebook pode incluir callbacks (EarlyStopping/ModelCheckpoint) do Keras.
+## 4. Arquitetura do Modelo
+- `LSTM(256)` seguida de `Dense(vocab, activation='softmax')`.
+- Otimizador: `Adam(lr=2e-3, clipnorm=1.0)`.
 
-## Reprodutibilidade
-- Registre semente aleatória (NumPy/TensorFlow) para resultados semelhantes entre execuções.
-- Salve o `.keras` e o `.pkl` correspondentes no mesmo diretório da versão.
+## 5. Treinamento
+- `BATCH_SIZE = 256` (ajuste conforme memoria GPU) e `EPOCAS_TREINO = 40`.
+- Callbacks: `ModelCheckpoint(save_best_only=True)`, `ReduceLROnPlateau`, `EarlyStopping`.
+- Opcional: `validation_split=0.05` no `fit` para melhor ajuste de LR/early stop.
 
-## Geração de texto
-- Forneça um texto inicial (“seed”) com caracteres presentes no vocabulário.
-- Ajuste a “temperatura” e o comprimento de saída para experimentar estilos.
+## 6. Salvamento e Carregamento
+- Modelo salvo em `.keras` e mapeamentos em `.pkl` nos caminhos de versao.
+- Carregamento: `tf.keras.models.load_model(NOME_ARQUIVO_MODELO)` e `pickle.load` para mapeamentos.
 
-## Solução de problemas
-- TensorFlow sem GPU: tudo funciona em CPU, apenas mais lento.
-- Erros de memória: reduza `batch_size` e/ou `tamanho_sequencia`.
-- Unicode/acentos: garanta leitura com `encoding="utf-8"` no preparo do texto.
+## 7. Geracao de Texto
+- Use a celula de geracao com top-k/nucleus adicionada ao notebook:
+  - `gerar_texto(model, char_para_int, int_para_char, seed, comprimento=400, k=20, temperatura=0.8)`
+- Dicas:
+  - Seed ~160 chars do proprio corpus melhora a fluencia.
+  - Temperatura 0.7–0.9 tende a gerar texto mais natural que 0.2.
 
-## Boas práticas
-- Não versione `models/` e `mappings/` (já ignorados no `.gitignore`).
-- Documente hiperparâmetros utilizados em cada treino (útil para o TCC).
+## Passo a passo rapido
+1) Setup -> 2) Dados -> 3) Vocab -> 4) Modelo -> 5) Treino -> 6) Salvar/Carregar -> 7) Geracao.
+
+## Solucao de problemas
+- OOM: reduza `BATCH_SIZE` e/ou `TAMANHO_SEQUENCIA`.
+- Saida repetitiva: aumente temperatura e/ou use top-k (k=20) ou nucleus (p=0.9).

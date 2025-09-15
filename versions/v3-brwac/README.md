@@ -1,40 +1,46 @@
 # v3 - Treino com BrWaC
 
-Nesta versao treinamos o LM por caracteres usando o corpus BrWaC (colecao de portugues do Brasil) via Hugging Face Datasets.
+LM por caracteres treinado no corpus BrWaC via Hugging Face Datasets. Usa a classe `LLMSimplesGenerico` em `llm_generico.py` para preparo de dados e treino.
 
 ## Estrutura
-- Script de treino: `scripts/treinar_com_brwac.py`
-- Modelos salvos: `models/` (ex.: `modelo_brwac.keras`)
-- Mapeamentos: `mappings/` (ex.: `mapeamentos_brwac.pkl`)
-- Observacao: artefatos binarios (.keras, .pkl) sao ignorados no Git.
+- Script: `versions/v3-brwac/scripts/treinar_com_brwac.py`
+- Modelos: `versions/v3-brwac/models/` (ex.: `modelo_brwac.keras`)
+- Mapeamentos: `versions/v3-brwac/mappings/` (ex.: `mapeamentos_brwac.pkl`)
 
-## Pre-requisitos
-- Python 3.11+ (recomendado 3.12).
-- Instale dependencias: `pip install -r requirements.txt` na raiz.
-- Conexao para baixar o dataset `nlpufg/brwac` (Hugging Face Datasets faz o download na primeira execucao).
+## 1. Setup
+- Por padrao, o script salva artefatos nas pastas desta versao.
+- Pode customizar com `--modelo_saida` e `--mapeamentos_saida`.
 
-## Execucao
-Exemplo rapido (amostra de 10k textos). Por padrao, os artefatos ja sao salvos nas pastas desta versao:
+## 2. Dados e Pre-processamento
+- Dataset: `nlpufg/brwac` (Hugging Face Datasets), split `train`.
+- Limpeza simples: remover quebras de linha extras e normalizar espacos.
+- Amostragem: `--max_textos` limita a quantidade de textos concatenados.
+
+## 3. Vocabulario e Janelas de Treino
+- Implementado internamente em `LLMSimplesGenerico` (char->id, id->char, janelas (X,y)).
+
+## 4. Arquitetura do Modelo
+- Embedding -> `LSTM(tamanho_lstm)` -> `Dense(vocab, softmax)`.
+- Parametros comuns: `tamanho_sequencia=160`, `tamanho_lstm=256..512`.
+
+## 5. Treinamento
+- Exemplo (amostra de 10k textos):
 ```
 python versions/v3-brwac/scripts/treinar_com_brwac.py \
-  --epocas 5 --max_textos 10000 \
-  --tamanho_sequencia 100 --tamanho_lstm 256 --batch_size 128
+  --epocas 10 --max_textos 10000 \
+  --tamanho_sequencia 160 --tamanho_lstm 256 --batch_size 256
 ```
-Se desejar, voce pode trocar os caminhos de saida com `--modelo_saida` e `--mapeamentos_saida`.
+- Em GPUs (ex.: RTX 3070), experimente `--tamanho_lstm 512` e `--batch_size 256`.
 
-## O que o script faz
-1) Baixa/carrega `nlpufg/brwac`.
-2) Pre-processa os textos (limpeza simples e concatenacao em um arquivo temporario).
-3) Cria e treina o modelo via `LLMSimplesGenerico` (definido em `llm_generico.py`).
-4) Salva artefatos em `models/` e `mappings/`.
+## 6. Salvamento e Carregamento
+- Modelo `.keras` e mapeamentos `.pkl` sao salvos nos caminhos informados (ou padrao da versao).
+- Para gerar texto posteriormente, carregue modelo e mapeamentos e use a funcao de geracao (vide v1/v2) ou o utilitario `compare_generate.py`.
 
-## Dicas e cuidados
-- Reduza `--max_textos` e `--epocas` para testes rapidos.
-- Se faltar memoria, reduza `--batch_size` e/ou `--tamanho_lstm`.
-- Primeira execucao baixa o dataset e pode demorar; as proximas usam o cache local do Datasets.
+## 7. Geracao de Texto
+- Opcao 1: usar `compare_generate.py` na raiz:
+  - `python compare_generate.py --only v3 --prompt "Seu prompt" --length 400 --temperature 0.8`
+- Opcao 2: implementar uma rotina de geracao similar a v1/v2 com top-k/nucleus a partir dos mapeamentos.
 
-## Solucao de problemas
-- ImportError `llm_generico`: confirme que `llm_generico.py` esta na raiz do repositorio.
-- Latencia alta/sem GPU: TensorFlow roda em CPU; considere reduzir hiperparametros.
-- Acentuacao: usamos `utf-8` no processo; mantenha esse padrao em leituras/gravacoes.
-
+## Dicas
+- `--max_textos` e `--epocas` controlam tempo/qualidade; aumente gradualmente.
+- Se faltar memoria: reduza `--batch_size` e/ou `--tamanho_lstm`.

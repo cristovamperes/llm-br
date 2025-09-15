@@ -1,36 +1,41 @@
-# v2 — LLM de caracteres (evolução)
+# v2 - LLM de caracteres (evolucao)
 
-Esta versão aprofunda o LM por caracteres com melhorias de arquitetura/treino em relação ao v1. É indicada para comparar escolhas de hiperparâmetros e callbacks.
+Versao evoluida do LM por caracteres para comparar hiperparametros e treino com callbacks. Mantem a abordagem char-level, com maior capacidade.
 
 ## Estrutura
-- Notebook principal: `notebooks/llm_v2.ipynb`
-- Modelos salvos: `models/`
-- Mapeamentos (char↔idx): `mappings/`
-- Observação: artefatos binários (.keras, .pkl) são ignorados no Git.
+- Notebook: `versions/v2-char-lm/notebooks/llm_v2.ipynb`
+- Modelos: `versions/v2-char-lm/models/`
+- Mapeamentos: `versions/v2-char-lm/mappings/`
 
-## Pré‑requisitos
-- Python 3.11+ (recomendado 3.12).
-- Dependências: `pip install -r requirements.txt` na raiz.
+## 1. Setup
+- Execute a celula SETUP_ARTIFACT_PATHS para definir `MODELO_OUT` e `MAPEAMENTOS_OUT` dentro da versao.
 
-## O que muda em relação ao v1
-- Possível uso de camadas adicionais, regularização (Dropout), ou embeddings de caracteres.
-- Callbacks do Keras: `EarlyStopping`, `ReduceLROnPlateau`, `ModelCheckpoint` para treinos mais estáveis.
-- Ajustes no preparo de dados (sequências, balanceamento, split de validação).
+## 2. Dados e Pre-processamento
+- Mesmo corpus base (ex.: Dom Casmurro) ou outro texto.
+- Normalizacao: lowercase + compactacao de espacos.
 
-## Passo a passo
-1) Abra `notebooks/llm_v2.ipynb` e execute as células.
-2) Monitore as curvas de perda/validação; ajuste `épocas`, `batch_size`, `tamanho_lstm` conforme necessário.
-3) Gere texto e compare qualitativamente com o v1.
+## 3. Vocabulario e Janelas de Treino
+- Parametros base: `SEQ_LEN = 160`.
+- Mapeamentos char->id, id->char e criacao de (X,y).
+
+## 4. Arquitetura do Modelo
+- LSTM com mais unidades: `LSTM_UNITS = 512` (ajuste conforme GPU).
+- `Dense(vocab, softmax)` no topo.
+- Otimizador: `Adam(lr=2e-3, clipnorm=1.0)`.
+
+## 5. Treinamento
+- `BATCH_SIZE = 256` e `EPOCHS = 40` (ajuste para sua GPU).
+- Callbacks: `ModelCheckpoint(save_best_only=True)`, `ReduceLROnPlateau`, `EarlyStopping`.
+- `validation_split=0.05` no `fit` para controlar LR/early stop.
+
+## 6. Salvamento e Carregamento
+- Artefatos em `models/` e `mappings/` dentro da versao.
+- Reuso: `tf.keras.models.load_model(...)` e `pickle.load(...)` para mapeamentos.
+
+## 7. Geracao de Texto
+- Mesmas funcoes de geracao (top-k/nucleus) estao no notebook.
+- Use seed ~160 chars do corpus e temperatura 0.7–0.9 para avaliar qualidade.
 
 ## Dicas
-- Se houver overfitting, aumente dropout ou use early stopping.
-- Se o treino estiver lento, reduza `tamanho_lstm` e `batch_size`.
-- Experimente diferentes estratégias de amostragem durante a geração (top‑k/top‑p se implementadas).
-
-## Solução de problemas
-- “No module named tensorflow”: instale o `requirements.txt` e verifique versão do Python compatível.
-- Problemas de acentuação: padronize `utf-8` na leitura do corpus.
-
-## Boas práticas
-- Registre resultados (tabelas/figuras) para o relatório do TCC.
-- Mantenha `models/` e `mappings/` fora do Git (já ignorados).
+- Se overfitting: aumente dropout (se houver), reduza unidades, ou aumente validation_split.
+- Se falta memoria: reduza `BATCH_SIZE` ou `LSTM_UNITS`.
