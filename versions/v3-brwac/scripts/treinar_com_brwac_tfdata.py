@@ -4,9 +4,19 @@ import random
 import tempfile
 import unicodedata
 
+import sys
+from pathlib import Path
+
 import numpy as np
 import tensorflow as tf
 from datasets import load_dataset
+
+# Permitir importar módulos do raiz do repo quando executado via caminho
+_HERE = Path(__file__).resolve().parent
+_REPO_ROOT = _HERE.parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
 from llm_generico_v2 import LLMSimplesGenericoV2
 
 
@@ -185,4 +195,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
