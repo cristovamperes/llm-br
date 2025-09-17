@@ -25,7 +25,7 @@ def preparar_texto(
     texto: str,
     lowercase: bool = True,
     end_marker: str = "<END>",
-    end_inline_sep: str = " ",
+    end_inline_sep: str = "\n",
 ) -> str:
     """Limpeza mais robusta para BrWaC.
     - Normaliza Unicode (NFKC) e remove caracteres de controle
@@ -63,6 +63,7 @@ def main() -> None:
     parser.add_argument("--min_len", type=int, default=50, help="Comprimento mínimo por documento")
     parser.add_argument("--seed", type=int, default=42, help="Seed de reprodução")
     parser.add_argument("--no_lowercase", action="store_true", help="Não converter para minúsculas")
+    parser.add_argument("--end_inline_sep", type=str, choices=["space", "newline"], default="newline", help="Substituir token <END> por espaco ('space') ou quebra ('newline')")
     # Modelo/treino
     parser.add_argument("--epocas", type=int, default=10, help="Épocas de treino")
     parser.add_argument("--tamanho_sequencia", type=int, default=160, help="Comprimento da janela")
@@ -124,7 +125,8 @@ def main() -> None:
             if count_t >= max_train:
                 break
             texto = exemplo["text"]
-            texto_p = preparar_texto(texto, lowercase=(not args.no_lowercase))
+            sep = " " if args.end_inline_sep == "space" else "\n"
+            texto_p = preparar_texto(texto, lowercase=(not args.no_lowercase), end_inline_sep=sep)
             if len(texto_p) >= args.min_len:
                 ftrain.write(texto_p + "\n\n")
                 count_t += 1
@@ -141,7 +143,8 @@ def main() -> None:
                 if count_v >= max_val:
                     break
                 texto = exemplo["text"]
-                texto_p = preparar_texto(texto, lowercase=(not args.no_lowercase))
+                sep = " " if args.end_inline_sep == "space" else "\n"
+                texto_p = preparar_texto(texto, lowercase=(not args.no_lowercase), end_inline_sep=sep)
                 if len(texto_p) >= args.min_len:
                     fval.write(texto_p + "\n\n")
                     count_v += 1
