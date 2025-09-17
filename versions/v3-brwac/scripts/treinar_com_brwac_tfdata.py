@@ -199,6 +199,7 @@ def main() -> None:
             tf.keras.callbacks.TensorBoard(log_dir=tb_log_dir),
         ]
 
+        started_at = time.time()
         llm.treinar(
             caminho_texto=caminho_texto_train,
             nome_arquivo_modelo=args.modelo_saida,
@@ -206,6 +207,76 @@ def main() -> None:
             callbacks=cb,
             caminho_texto_validacao=caminho_texto_val,
         )
+        ended_at = time.time()
+        elapsed = ended_at - started_at
+
+        # Montar e salvar log JSON com ambiente, config e stats
+        def _env_info() -> dict:
+            gpus = tf.config.list_physical_devices("GPU")
+            gpu_names = []
+            for g in gpus:
+                try:
+                    det = tf.config.experimental.get_device_details(g)
+                    name = det.get("device_name") or str(g)
+                except Exception:
+                    name = str(g)
+                gpu_names.append(name)
+            return {
+                "python": platform.python_version(),
+                "tensorflow": tf.__version__,
+                "os": platform.platform(),
+                "cpu": platform.processor(),
+                "cpu_count": os.cpu_count(),
+                "gpu_devices": gpu_names,
+            }
+
+        stats = llm.stats()
+        payload = {
+            "timestamps": {
+                "started_at": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(started_at)),
+                "ended_at": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ended_at)),
+                "elapsed_sec": elapsed,
+            },
+            "env": _env_info(),
+            "dataset": {"train_docs": count_t, "val_docs": count_v, "min_len": args.min_len},
+            "train_config": {
+                "epocas": args.epocas,
+                "batch_size": args.batch_size,
+                "tamanho_sequencia": args.tamanho_sequencia,
+                "tamanho_lstm": args.tamanho_lstm,
+                "embedding_dim": args.embedding_dim,
+                "stride": args.stride,
+                "shuffle_buffer": args.shuffle_buffer,
+                "dropout": args.dropout,
+                "recurrent_dropout": args.recurrent_dropout,
+                "clipnorm": args.clipnorm,
+                "end_inline_sep": "newline" if args.end_inline_sep != "space" else "space",
+                "seed": args.seed,
+            },
+            "model": {"params": stats.get("params"), "vocab_size": stats.get("vocab_size")},
+            "windows": {
+                "train_windows": stats.get("train_windows"),
+                "val_windows": stats.get("val_windows"),
+                "train_batches": stats.get("train_batches"),
+                "val_batches": stats.get("val_batches"),
+            },
+            "artifacts": {
+                "modelo": args.modelo_saida,
+                "mapeamentos": args.mapeamentos_saida,
+                "csv_history": csv_log_path,
+                "tensorboard_log_dir": tb_log_dir,
+            },
+        }
+        try:
+            payload["git"] = {"commit": os.popen("git rev-parse HEAD").read().strip()}
+        except Exception:
+            pass
+        try:
+            with open(log_json_path, "w", encoding="utf-8") as jf:
+                json.dump(payload, jf, ensure_ascii=False, indent=2)
+            print(f"Log de treino salvo em {log_json_path}")
+        except Exception as e:
+            print(f"[WARN] Falha ao salvar log JSON: {e}")
         print(f"Treinamento concluído! Modelo salvo em '{args.modelo_saida}'")
     finally:
         # Limpar arquivos temporários
