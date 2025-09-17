@@ -114,6 +114,7 @@ def main() -> None:
     log_json_path = args.log_json_saida or os.path.join(logs_dir, f"train_{ts}.json")
     csv_log_path = os.path.join(logs_dir, f"history_{ts}.csv")
     tb_log_dir = os.path.join(logs_dir, f"tb_{ts}")
+    batch_log_path = os.path.join(logs_dir, f"batches_{ts}.log")
 
     print("Carregando dataset BrWaC (split 'train')...")
     dataset = load_dataset("nlpufg/brwac")
@@ -186,6 +187,25 @@ def main() -> None:
 
         print("Iniciando treinamento...")
         monitor = "val_loss" if caminho_texto_val else "loss"
+        # Callback para log por batch
+        def _batch_logger_factory(path: str, freq: int = 100):
+            def _on_batch_end(batch, logs=None):
+                if logs is None:
+                    return
+                if freq and (batch % freq == 0):
+                    loss = logs.get("loss")
+                    try:
+                        msg = f"batch {batch} - loss {loss:.4f}"
+                    except Exception:
+                        msg = f"batch {batch} - loss {loss}"
+                    print(msg, flush=True)
+                    try:
+                        with open(path, "a", encoding="utf-8") as fh:
+                            fh.write(str(int(time.time())) + "," + msg + "\n")
+                    except Exception:
+                        pass
+            return tf.keras.callbacks.LambdaCallback(on_batch_end=_on_batch_end)
+
         cb = [
             tf.keras.callbacks.ModelCheckpoint(
                 filepath=args.modelo_saida,
@@ -196,7 +216,8 @@ def main() -> None:
             tf.keras.callbacks.ReduceLROnPlateau(monitor=monitor, factor=0.5, patience=3, min_lr=5e-5),
             tf.keras.callbacks.EarlyStopping(monitor=monitor, patience=5, restore_best_weights=True),
             tf.keras.callbacks.CSVLogger(csv_log_path),
-            tf.keras.callbacks.TensorBoard(log_dir=tb_log_dir),
+            tf.keras.callbacks.TensorBoard(log_dir=tb_log_dir, update_freq=100),
+            _batch_logger_factory(batch_log_path, freq=100),
         ]
 
         started_at = time.time()

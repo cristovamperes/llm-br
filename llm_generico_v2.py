@@ -103,7 +103,7 @@ class LLMSimplesGenericoV2:
             epochs=self.cfg.epocas_treino,
             validation_data=ds_val if ds_val is not None else None,
             callbacks=callbacks if callbacks else None,
-            verbose=2,
+            verbose=1,
         )
 
         # Garantir diretórios de saída
