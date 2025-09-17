@@ -4,6 +4,9 @@ import random
 import tempfile
 import unicodedata
 import re
+import time
+import json
+import platform
 
 import sys
 from pathlib import Path
@@ -89,6 +92,12 @@ def main() -> None:
         default="versions/v3-brwac/mappings/mapeamentos_brwac.pkl",
         help="Arquivo de mapeamentos (.pkl)",
     )
+    parser.add_argument(
+        "--log_json_saida",
+        type=str,
+        default="",
+        help="Arquivo JSON para registrar detalhes do treino (se vazio, gera em versions/v3-brwac/logs/)",
+    )
 
     args = parser.parse_args()
 
@@ -97,6 +106,14 @@ def main() -> None:
     random.seed(args.seed)
     np.random.seed(args.seed)
     tf.random.set_seed(args.seed)
+
+    # Paths de log
+    ts = time.strftime("%Y%m%d_%H%M%S")
+    logs_dir = os.path.join("versions", "v3-brwac", "logs")
+    os.makedirs(logs_dir, exist_ok=True)
+    log_json_path = args.log_json_saida or os.path.join(logs_dir, f"train_{ts}.json")
+    csv_log_path = os.path.join(logs_dir, f"history_{ts}.csv")
+    tb_log_dir = os.path.join(logs_dir, f"tb_{ts}")
 
     print("Carregando dataset BrWaC (split 'train')...")
     dataset = load_dataset("nlpufg/brwac")
@@ -178,6 +195,8 @@ def main() -> None:
             ),
             tf.keras.callbacks.ReduceLROnPlateau(monitor=monitor, factor=0.5, patience=3, min_lr=5e-5),
             tf.keras.callbacks.EarlyStopping(monitor=monitor, patience=5, restore_best_weights=True),
+            tf.keras.callbacks.CSVLogger(csv_log_path),
+            tf.keras.callbacks.TensorBoard(log_dir=tb_log_dir),
         ]
 
         llm.treinar(

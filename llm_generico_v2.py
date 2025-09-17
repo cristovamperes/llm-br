@@ -1,7 +1,7 @@
 import os
 import pickle
 from dataclasses import dataclass
-from typing import Dict, Tuple, Optional
+from typing import Dict, Tuple, Optional, Any
 
 import numpy as np
 import tensorflow as tf
@@ -59,6 +59,12 @@ class LLMSimplesGenericoV2:
         self.model: tf.keras.Model | None = None
         self.char_to_idx: Dict[str, int] | None = None
         self.idx_to_char: Dict[int, str] | None = None
+        # Stats
+        self.vocab_size: int = 0
+        self.train_windows: int = 0
+        self.val_windows: int = 0
+        self.train_batches: int = 0
+        self.val_batches: int = 0
 
     # ------------------------------
     # Público
@@ -77,14 +83,20 @@ class LLMSimplesGenericoV2:
         seq_train = self._texto_para_indices(texto_train, self.char_to_idx)
         ds_train = self._seq_para_dataset(seq_train, treino=True)
 
+        # Stats: vocab/windows/batches
+        self.vocab_size = len(self.char_to_idx)
+        self.train_windows = max(0, int((len(seq_train) - self.cfg.tamanho_sequencia) // max(1, self.cfg.stride)))
+        self.train_batches = int(np.ceil(self.train_windows / max(1, self.cfg.batch_size)))
+
         ds_val = None
         if caminho_texto_validacao:
             texto_val = self._ler_texto(caminho_texto_validacao)
             seq_val = self._texto_para_indices(texto_val, self.char_to_idx, unk_idx=self._unk_idx())
             ds_val = self._seq_para_dataset(seq_val, treino=False)
+            self.val_windows = max(0, int((len(seq_val) - self.cfg.tamanho_sequencia) // max(1, self.cfg.stride)))
+            self.val_batches = int(np.ceil(self.val_windows / max(1, self.cfg.batch_size)))
 
-        vocab_size = len(self.char_to_idx)
-        self.model = self._construir_modelo(vocab_size)
+        self.model = self._construir_modelo(self.vocab_size)
 
         self.model.fit(
             ds_train,
@@ -101,6 +113,23 @@ class LLMSimplesGenericoV2:
         # Salvar artefatos
         self.model.save(nome_arquivo_modelo)
         self._salvar_mapeamentos(nome_arquivo_maps)
+
+    def stats(self) -> Dict[str, Any]:
+        """Retorna estatísticas do treino/modelo até o momento."""
+        params = int(self.model.count_params()) if self.model is not None else 0
+        return {
+            "vocab_size": self.vocab_size,
+            "tamanho_sequencia": self.cfg.tamanho_sequencia,
+            "embedding_dim": self.cfg.embedding_dim,
+            "tamanho_lstm": self.cfg.tamanho_lstm,
+            "batch_size": self.cfg.batch_size,
+            "stride": self.cfg.stride,
+            "train_windows": self.train_windows,
+            "val_windows": self.val_windows,
+            "train_batches": self.train_batches,
+            "val_batches": self.val_batches,
+            "params": params,
+        }
 
     # ------------------------------
     # Internos
@@ -168,6 +197,7 @@ class LLMSimplesGenericoV2:
             "embedding_dim": self.cfg.embedding_dim,
             "tamanho_lstm": self.cfg.tamanho_lstm,
             "stride": self.cfg.stride,
+            "vocab_size": self.vocab_size,
         }
         with open(caminho_maps, "wb") as f:
             pickle.dump(payload, f)
