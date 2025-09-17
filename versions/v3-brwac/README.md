@@ -14,7 +14,7 @@ LM por caracteres treinado no corpus BrWaC via Hugging Face Datasets. Usa a clas
 
 ## 2. Dados e Pre-processamento
 - Dataset: `nlpufg/brwac` (Hugging Face Datasets), split `train`.
-- Limpeza (script recomendado): normaliza Unicode (NFKC), remove controles, preserva quebras de linha e trata marcadores `<END>` como separadores de documento.
+- Limpeza (script recomendado): normaliza Unicode (NFKC), remove controles, preserva quebras de linha; o marcador `<END>` é tratado como separador inline dentro da linha (`--end_inline_sep space|newline`, padrão: `newline`).
 - Split por documento (treino/validacao) sem usar `validation_split` por janelas.
 - Amostragem: `--max_textos` limita a quantidade de textos por conjunto (treino/val). Use `--min_len` para filtrar textos muito curtos.
 
@@ -40,7 +40,7 @@ python versions/v3-brwac/scripts/treinar_com_brwac_tfdata.py \
   --epocas 10 --max_textos 10000 \
   --tamanho_sequencia 160 --tamanho_lstm 256 --embedding_dim 128 \
   --batch_size 256 --stride 3 --dropout 0.2 --clipnorm 1.0 \
-  --validacao_split 0.1
+  --validacao_split 0.1 --end_inline_sep newline
 ```
 - Em GPUs (ex.: RTX 3070), experimente `--tamanho_lstm 512` e `--batch_size 256`.
 

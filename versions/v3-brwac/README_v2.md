@@ -1,6 +1,6 @@
 # v3 - BrWaC (tf.data) — Script V2
 
-Treinamento por caracteres com BrWaC usando tf.data (janelas com stride) e limpeza de texto mais robusta (tratando marcadores `<END>` como separadores de documento).
+Treinamento por caracteres com BrWaC usando tf.data (janelas com stride) e limpeza de texto mais robusta. O marcador `<END>` no corpus é tratado como separador inline dentro da MESMA linha (configurável para substituir por espaço ou newline).
 
 ## Scripts
 - Treino (novo): `versions/v3-brwac/scripts/treinar_com_brwac_tfdata.py`
@@ -10,8 +10,14 @@ Treinamento por caracteres com BrWaC usando tf.data (janelas com stride) e limpe
 - Split de validação por documento (sem `validation_split` por janelas).
 - `tf.data` para gerar janelas sob demanda, com `--stride`, `--shuffle_buffer` e `prefetch`.
 - Hiperparâmetros extras: `--embedding_dim`, `--dropout`, `--recurrent_dropout`, `--clipnorm`.
-- Limpeza: Unicode NFKC, remoção de controles, preserva quebras e trata `<END>` como separador.
+- Limpeza: Unicode NFKC, remoção de controles, preserva quebras; `<END>` vira separador inline configurável (`--end_inline_sep space|newline`, padrão: `newline`).
 - Seeds fixos para reprodutibilidade.
+
+## Nuances do Dataset
+- Cada exemplo do BrWaC-clean é uma linha; `<END>` separa campos dentro da linha.
+- O script converte `\s*<END>\s*` para o separador escolhido:
+  - `--end_inline_sep newline` (padrão): substitui por quebra de linha interna, preservando estrutura.
+  - `--end_inline_sep space`: colapsa em espaço simples.
 
 ## Exemplo — Treinamento
 ```
@@ -19,7 +25,7 @@ python versions/v3-brwac/scripts/treinar_com_brwac_tfdata.py \
   --epocas 10 --max_textos 10000 \
   --tamanho_sequencia 160 --tamanho_lstm 256 --embedding_dim 128 \
   --batch_size 256 --stride 3 --dropout 0.2 --clipnorm 1.0 \
-  --validacao_split 0.1
+  --validacao_split 0.1 --end_inline_sep newline
 ```
 
 Artefatos gerados:
@@ -37,4 +43,3 @@ python compare_generate_v2.py \
 - Aumente `--stride` para reduzir custo (ex.: 5–8) se o corpus for grande.
 - Se overfitting: aumente `--dropout`, use `--tamanho_lstm 512` apenas com GPU.
 - Se memória for limite: reduza `--batch_size` e/ou `--tamanho_lstm`.
-

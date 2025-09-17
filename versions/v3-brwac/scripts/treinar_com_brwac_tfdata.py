@@ -3,22 +3,33 @@ import os
 import random
 import tempfile
 import unicodedata
+import re
+
+import sys
+from pathlib import Path
 
 import numpy as np
 import tensorflow as tf
 from datasets import load_dataset
+
+# Permitir importar módulos do raiz do repo quando executado via caminho
+_HERE = Path(__file__).resolve().parent
+_REPO_ROOT = _HERE.parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
 from llm_generico_v2 import LLMSimplesGenericoV2
 
 
 def preparar_texto(
     texto: str,
     lowercase: bool = True,
-    boundary_token: str | None = "\n⟂\n",
     end_marker: str = "<END>",
+    end_inline_sep: str = "\n",
 ) -> str:
     """Limpeza mais robusta para BrWaC.
     - Normaliza Unicode (NFKC) e remove caracteres de controle
-    - Converte <END> em separador de documentos
+    - Trata <END> como separador IN-LINE dentro da mesma linha (não quebra documento)
     - Consolida espaços mantendo quebras de linha
     - Lowercase opcional
     """
@@ -26,9 +37,10 @@ def preparar_texto(
     texto = unicodedata.normalize("NFKC", texto)
     # Remover controles (exceto \n, \t)
     texto = "".join(ch for ch in texto if ch == "\n" or ch == "\t" or ord(ch) >= 32)
-    # Marcas de seção como quebras de documento
+    # <END> separa campos na MESMA linha -> substituir por separador inline (ex.: espaço)
     if end_marker:
-        texto = texto.replace(end_marker, boundary_token or "\n")
+        # normalizar ocorrências com espaços ao redor
+        texto = re.sub(r"\s*" + re.escape(end_marker) + r"\s*", end_inline_sep, texto)
     # Normalizar quebras
     texto = texto.replace("\r", "")
 
@@ -51,6 +63,7 @@ def main() -> None:
     parser.add_argument("--min_len", type=int, default=50, help="Comprimento mínimo por documento")
     parser.add_argument("--seed", type=int, default=42, help="Seed de reprodução")
     parser.add_argument("--no_lowercase", action="store_true", help="Não converter para minúsculas")
+    parser.add_argument("--end_inline_sep", type=str, choices=["space", "newline"], default="newline", help="Substituir token <END> por espaco ('space') ou quebra ('newline')")
     # Modelo/treino
     parser.add_argument("--epocas", type=int, default=10, help="Épocas de treino")
     parser.add_argument("--tamanho_sequencia", type=int, default=160, help="Comprimento da janela")
@@ -112,7 +125,8 @@ def main() -> None:
             if count_t >= max_train:
                 break
             texto = exemplo["text"]
-            texto_p = preparar_texto(texto, lowercase=(not args.no_lowercase))
+            sep = " " if args.end_inline_sep == "space" else "\n"
+            texto_p = preparar_texto(texto, lowercase=(not args.no_lowercase), end_inline_sep=sep)
             if len(texto_p) >= args.min_len:
                 ftrain.write(texto_p + "\n\n")
                 count_t += 1
@@ -129,7 +143,8 @@ def main() -> None:
                 if count_v >= max_val:
                     break
                 texto = exemplo["text"]
-                texto_p = preparar_texto(texto, lowercase=(not args.no_lowercase))
+                sep = " " if args.end_inline_sep == "space" else "\n"
+                texto_p = preparar_texto(texto, lowercase=(not args.no_lowercase), end_inline_sep=sep)
                 if len(texto_p) >= args.min_len:
                     fval.write(texto_p + "\n\n")
                     count_v += 1
@@ -185,4 +200,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
