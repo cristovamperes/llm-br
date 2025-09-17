@@ -3,6 +3,7 @@ import os
 import random
 import tempfile
 import unicodedata
+import re
 
 import sys
 from pathlib import Path
@@ -23,12 +24,12 @@ from llm_generico_v2 import LLMSimplesGenericoV2
 def preparar_texto(
     texto: str,
     lowercase: bool = True,
-    boundary_token: str | None = "\n⟂\n",
     end_marker: str = "<END>",
+    end_inline_sep: str = " ",
 ) -> str:
     """Limpeza mais robusta para BrWaC.
     - Normaliza Unicode (NFKC) e remove caracteres de controle
-    - Converte <END> em separador de documentos
+    - Trata <END> como separador IN-LINE dentro da mesma linha (não quebra documento)
     - Consolida espaços mantendo quebras de linha
     - Lowercase opcional
     """
@@ -36,9 +37,10 @@ def preparar_texto(
     texto = unicodedata.normalize("NFKC", texto)
     # Remover controles (exceto \n, \t)
     texto = "".join(ch for ch in texto if ch == "\n" or ch == "\t" or ord(ch) >= 32)
-    # Marcas de seção como quebras de documento
+    # <END> separa campos na MESMA linha -> substituir por separador inline (ex.: espaço)
     if end_marker:
-        texto = texto.replace(end_marker, boundary_token or "\n")
+        # normalizar ocorrências com espaços ao redor
+        texto = re.sub(r"\s*" + re.escape(end_marker) + r"\s*", end_inline_sep, texto)
     # Normalizar quebras
     texto = texto.replace("\r", "")
 
