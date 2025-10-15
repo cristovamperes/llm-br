@@ -1,3 +1,4 @@
+﻿# -*- coding: utf-8 -*-
 import os
 import pickle
 from dataclasses import dataclass
@@ -21,12 +22,14 @@ class TreinoConfigV2:
     dropout: float = 0.2
     recurrent_dropout: float = 0.0
     clipnorm: float | None = 1.0
+    unk_token: str = "~"
 
 
 class LLMSimplesGenericoV2:
-    """
-    LLM simples por caracteres usando Keras (Embedding + LSTM + Softmax),
-    treinado com tf.data para janelas deslizantes eficientes.
+    """LLM simples por caracteres usando Keras (Embedding + LSTM + Softmax).
+
+    Usa tf.data para gerar janelas deslizantes de forma eficiente e oferece
+    utilidades para registrar estatísticas do treinamento.
     """
 
     def __init__(
@@ -42,6 +45,7 @@ class LLMSimplesGenericoV2:
         dropout: float = 0.2,
         recurrent_dropout: float = 0.0,
         clipnorm: float | None = 1.0,
+        unk_token: str = "~",
     ) -> None:
         self.cfg = TreinoConfigV2(
             tamanho_sequencia=tamanho_sequencia,
@@ -55,7 +59,9 @@ class LLMSimplesGenericoV2:
             dropout=dropout,
             recurrent_dropout=recurrent_dropout,
             clipnorm=clipnorm,
+            unk_token=unk_token,
         )
+        self.unk_token = unk_token
         self.model: tf.keras.Model | None = None
         self.char_to_idx: Dict[str, int] | None = None
         self.idx_to_char: Dict[int, str] | None = None
@@ -80,7 +86,8 @@ class LLMSimplesGenericoV2:
         texto_train = self._ler_texto(caminho_texto)
         self.char_to_idx, self.idx_to_char = self._criar_mapeamentos(texto_train)
 
-        seq_train = self._texto_para_indices(texto_train, self.char_to_idx)
+        unk_idx = self._unk_idx()
+        seq_train = self._texto_para_indices(texto_train, self.char_to_idx, unk_idx=unk_idx)
         ds_train = self._seq_para_dataset(seq_train, treino=True)
 
         # Stats: vocab/windows/batches
@@ -91,7 +98,7 @@ class LLMSimplesGenericoV2:
         ds_val = None
         if caminho_texto_validacao:
             texto_val = self._ler_texto(caminho_texto_validacao)
-            seq_val = self._texto_para_indices(texto_val, self.char_to_idx, unk_idx=self._unk_idx())
+            seq_val = self._texto_para_indices(texto_val, self.char_to_idx, unk_idx=unk_idx)
             ds_val = self._seq_para_dataset(seq_val, treino=False)
             self.val_windows = max(0, int((len(seq_val) - self.cfg.tamanho_sequencia) // max(1, self.cfg.stride)))
             self.val_batches = int(np.ceil(self.val_windows / max(1, self.cfg.batch_size)))
@@ -129,6 +136,7 @@ class LLMSimplesGenericoV2:
             "train_batches": self.train_batches,
             "val_batches": self.val_batches,
             "params": params,
+            "unk_token": self.cfg.unk_token,
         }
 
     # ------------------------------
@@ -139,9 +147,11 @@ class LLMSimplesGenericoV2:
         with open(caminho, "r", encoding="utf-8") as f:
             return f.read()
 
-    @staticmethod
-    def _criar_mapeamentos(texto: str) -> Tuple[Dict[str, int], Dict[int, str]]:
-        vocab = sorted(list(set(texto)))
+    def _criar_mapeamentos(self, texto: str) -> Tuple[Dict[str, int], Dict[int, str]]:
+        vocab = sorted(set(texto))
+        if self.cfg.unk_token not in vocab:
+            vocab.append(self.cfg.unk_token)
+        vocab = sorted(vocab)
         char_to_idx = {ch: i for i, ch in enumerate(vocab)}
         idx_to_char = {i: ch for ch, i in char_to_idx.items()}
         return char_to_idx, idx_to_char
@@ -154,7 +164,6 @@ class LLMSimplesGenericoV2:
                 seq.append(char_to_idx[ch])
             elif unk_idx is not None:
                 seq.append(unk_idx)
-            # else: ignora
         return np.array(seq, dtype=np.int32)
 
     def _seq_para_dataset(self, seq: np.ndarray, treino: bool) -> tf.data.Dataset:
@@ -184,9 +193,13 @@ class LLMSimplesGenericoV2:
         return model
 
     def _unk_idx(self) -> int:
-        # Fallback para caractere desconhecido, usa espaço se existir, senão 0
+        # Fallback para caractere desconhecido
         assert self.char_to_idx is not None
-        return self.char_to_idx.get(" ", 0)
+        if self.cfg.unk_token in self.char_to_idx:
+            return self.char_to_idx[self.cfg.unk_token]
+        if " " in self.char_to_idx:
+            return self.char_to_idx[" "]
+        return next(iter(self.char_to_idx.values()))
 
     def _salvar_mapeamentos(self, caminho_maps: str) -> None:
         assert self.char_to_idx is not None and self.idx_to_char is not None
@@ -198,6 +211,7 @@ class LLMSimplesGenericoV2:
             "tamanho_lstm": self.cfg.tamanho_lstm,
             "stride": self.cfg.stride,
             "vocab_size": self.vocab_size,
+            "unk_token": self.cfg.unk_token,
         }
         with open(caminho_maps, "wb") as f:
             pickle.dump(payload, f)
